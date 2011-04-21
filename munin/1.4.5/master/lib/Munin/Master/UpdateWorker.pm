@@ -1,7 +1,7 @@
 package Munin::Master::UpdateWorker;
 use base qw(Munin::Master::Worker);
 
-# $Id$
+# $Id: UpdateWorker.pm 3254 2009-12-23 10:39:02Z janl $
 
 use warnings;
 use strict;
@@ -35,6 +35,7 @@ sub new {
     return $self;
 }
 
+sub RedisPort () {6379}
 
 sub do_work {
     my ($self) = @_;
@@ -67,68 +68,168 @@ sub do_work {
 	eval {
 	    # A I/O timeout results in a violent exit.  Catch and handle.
 
-	    $self->{node}->negotiate_capabilities();
-	    # Note: A multigraph plugin can present multiple services.
-	    my @plugins =  $self->{node}->list_plugins();
+		if ($self->{node}{port} == $self->RedisPort()) {
+			my %one_iteration_service_configs = (
+				data_source => {},
+				global => {},
+				);
 
-	    for my $plugin (@plugins) {
-		if (%{$config->{limit_services}}) {
-		    next unless $config->{limit_services}{$plugin};
+			$self->{node}->get_redis_hostname();
+
+			my @x = split(/[\s\n]+/, `host \`hostname\``);
+			my $masterIP = $x[3];
+
+			my $start_time = undef();
+
+			while(1) {
+				my %service_config;
+
+				my $plugin_data_fetched = $self->{node}->get_redis_plugin_data($masterIP) || last;
+
+				my ($plugin, $time, $plugin_data) = split(/[\s\n\\]+/, $plugin_data_fetched, 3);
+
+				if ($plugin eq '<no-more>') {
+					DEBUG "[DEBUG] last plugin detected, saving service configs";
+					%{$all_service_configs{data_source}} =
+						(%{$one_iteration_service_configs{data_source}});
+
+					%{$all_service_configs{global}} = (
+						%{$one_iteration_service_configs{global}});
+
+					my %one_iteration_service_configs = (
+						data_source => {},
+						global => {},
+						);
+					next;
+				}
+				
+				$start_time = $time if !defined($start_time) || $time < $start_time;
+
+				if (%{$config->{limit_services}}) {
+					next unless $config->{limit_services}{$plugin};
+				}
+
+				%service_config = $self->_process_redis_plugin_config($plugin);
+				unless (%service_config) {
+					WARN "[WARNING] Service $plugin on $nodedesignation ".
+					"returned no config";
+					next;
+				}
+
+				my %service_data = $self->{node}->process_redis_plugin_data($plugin, $time, $plugin_data);
+
+				# Since different plugins can populate multiple
+				# positions in the service namespace we'll check for
+				# collisions and warn of them.
+
+				for my $service (keys %{$service_config{data_source}}) {
+					if (defined($one_iteration_service_configs{data_source}{$service})) {
+						WARN "[WARNING] Service collision: plugin $plugin on "
+							."$nodedesignation reports $service which already "
+							."exists on that host.  Deleting new data.";
+						delete($service_config{data_source}{$service});
+						delete($service_data{$service})
+						if defined $service_data{$service};
+					}
+				}
+
+				# .extinfo fields come from "fetch" but must be saved
+				# like "config".
+
+				for my $service (keys %service_data) {
+					for my $ds (keys %{$service_data{$service}}) {
+						my $extinfo = $service_data{$service}{$ds}{extinfo};
+						if (defined $extinfo) {
+							$service_config{data_source}{$service}{$ds}{extinfo} =
+							$extinfo;
+							DEBUG "[DEBUG] Copied extinfo $extinfo into "
+							."service_config for $service / $ds on "
+							.$nodedesignation;
+						}
+					}
+				}
+
+				$self->_compare_and_act_on_config_changes(\%service_config);
+
+				%{$one_iteration_service_configs{data_source}} = (
+					%{$one_iteration_service_configs{data_source}},
+					%{$service_config{data_source}});
+
+				%{$one_iteration_service_configs{global}} = (
+					%{$one_iteration_service_configs{global}},
+					%{$service_config{global}});
+
+				$self->_update_rrd_files(\%service_config, \%service_data, $start_time-10);
+
+			} # for while(1)
+		} else {
+			$self->{node}->get_hostname();
+
+			$self->{node}->negotiate_capabilities();
+			# Note: A multigraph plugin can present multiple services.
+			my @plugins =  $self->{node}->list_plugins();
+
+			my $start_time = time() - 10;
+
+			for my $plugin (@plugins) {
+				if (%{$config->{limit_services}}) {
+					next unless $config->{limit_services}{$plugin};
+				}
+
+				my %service_config = $self->uw_fetch_service_config($plugin);
+				unless (%service_config) {
+					WARN "[WARNING] Service $plugin on $nodedesignation ".
+					"returned no config";
+					next;
+				}
+
+				my %service_data = $self->{node}->fetch_service_data($plugin);
+
+				# Since different plugins can populate multiple
+				# positions in the service namespace we'll check for
+				# collisions and warn of them.
+
+				for my $service (keys %{$service_config{data_source}}) {
+					if (defined($all_service_configs{data_source}{$service})) {
+						WARN "[WARNING] Service collision: plugin $plugin on "
+							."$nodedesignation reports $service which already "
+							."exists on that host.  Deleting new data.";
+						delete($service_config{data_source}{$service});
+						delete($service_data{$service})
+						if defined $service_data{$service};
+					}
+				}
+
+				# .extinfo fields come from "fetch" but must be saved
+				# like "config".
+
+				for my $service (keys %service_data) {
+					for my $ds (keys %{$service_data{$service}}) {
+						my $extinfo = $service_data{$service}{$ds}{extinfo};
+						if (defined $extinfo) {
+							$service_config{data_source}{$service}{$ds}{extinfo} =
+							$extinfo;
+							DEBUG "[DEBUG] Copied extinfo $extinfo into "
+							."service_config for $service / $ds on "
+							.$nodedesignation;
+						}
+					}
+				}
+
+				$self->_compare_and_act_on_config_changes(\%service_config);
+
+				%{$all_service_configs{data_source}} = (
+					%{$all_service_configs{data_source}},
+					%{$service_config{data_source}});
+
+				%{$all_service_configs{global}} = (
+					%{$all_service_configs{global}},
+					%{$service_config{global}});
+
+				$self->_update_rrd_files(\%service_config, \%service_data, $start_time);
+
+			} # for @plugins
 		}
-
-		my %service_config = $self->uw_fetch_service_config($plugin);
-		unless (%service_config) {
-		    WARN "[WARNING] Service $plugin on $nodedesignation ".
-			"returned no config";
-		    next;
-		}
-
-		my %service_data = $self->{node}->fetch_service_data($plugin);
-
-		# Since different plugins can populate multiple
-		# positions in the service namespace we'll check for
-		# collisions and warn of them.
-
-		for my $service (keys %{$service_config{data_source}}) {
-		    if (defined($all_service_configs{data_source}{$service})) {
-			WARN "[WARNING] Service collision: plugin $plugin on "
-			    ."$nodedesignation reports $service which already "
-			    ."exists on that host.  Deleting new data.";
-			delete($service_config{data_source}{$service});
-		    delete($service_data{$service})
-			if defined $service_data{$service};
-		    }
-		}
-
-		# .extinfo fields come from "fetch" but must be saved
-		# like "config".
-
-		for my $service (keys %service_data) {
-		    for my $ds (keys %{$service_data{$service}}) {
-			my $extinfo = $service_data{$service}{$ds}{extinfo};
-			if (defined $extinfo) {
-			    $service_config{data_source}{$service}{$ds}{extinfo} =
-				$extinfo;
-			    DEBUG "[DEBUG] Copied extinfo $extinfo into "
-				."service_config for $service / $ds on "
-				.$nodedesignation;
-			}
-		    }
-		}
-
-		$self->_compare_and_act_on_config_changes(\%service_config);
-
-		%{$all_service_configs{data_source}} = (
-		    %{$all_service_configs{data_source}},
-		    %{$service_config{data_source}});
-
-		%{$all_service_configs{global}} = (
-		    %{$all_service_configs{global}},
-		    %{$service_config{global}});
-
-		$self->_update_rrd_files(\%service_config, \%service_data);
-
-	    } # for @plugins
 	}; # eval
 
 	if ($EVAL_ERROR) {
@@ -167,6 +268,22 @@ sub uw_fetch_service_config {
     return %service_config;
 }
 
+sub _process_redis_plugin_config {
+    my ($self, $plugin) = @_;
+
+    # Note, this can die for several reasons.  Caller must eval us.
+    my %service_config = $self->{node}->process_redis_plugin_config($plugin);
+
+    if ($self->{host}{service_config} &&
+    $self->{host}{service_config}{$plugin}) {
+
+        %service_config
+            = (%service_config, %{$self->{host}{service_config}{$plugin}});
+
+    }
+
+    return %service_config;
+}
 
 sub _compare_and_act_on_config_changes {
     my ($self, $nested_service_config) = @_;
@@ -332,7 +449,7 @@ sub _ensure_tuning {
 
 
 sub _update_rrd_files {
-    my ($self, $nested_service_config, $nested_service_data) = @_;
+    my ($self, $nested_service_config, $nested_service_data, $start_time) = @_;
 
     my $nodedesignation = $self->{host}{host_name}."/".
 	$self->{host}{address}.":".$self->{host}{port};
@@ -352,7 +469,7 @@ sub _update_rrd_files {
 
 	    my $rrd_file 
 		= $self->_create_rrd_file_if_needed($service, $ds_name, 
-						    $service_config->{$ds_name});
+						    $service_config->{$ds_name}, $start_time);
 
 	    if (defined($service_data) and defined($service_data->{$ds_name})) {
 		$self->_update_rrd_file($rrd_file, $ds_name, $service_data->{$ds_name});
@@ -377,11 +494,11 @@ sub _set_rrd_data_source_defaults {
 
 
 sub _create_rrd_file_if_needed {
-    my ($self, $service, $ds_name, $ds_config) = @_;
+    my ($self, $service, $ds_name, $ds_config, $start_time) = @_;
 
     my $rrd_file = $self->_get_rrd_file_name($service, $ds_name, $ds_config);
     unless (-f $rrd_file) {
-        $self->_create_rrd_file($rrd_file, $service, $ds_name, $ds_config);
+        $self->_create_rrd_file($rrd_file, $service, $ds_name, $ds_config, $start_time);
     }
 
     return $rrd_file;
@@ -420,12 +537,14 @@ sub _get_rrd_file_name {
 
 
 sub _create_rrd_file {
-    my ($self, $rrd_file, $service, $ds_name, $ds_config) = @_;
+    my ($self, $rrd_file, $service, $ds_name, $ds_config, $start_time) = @_;
 
     INFO "[INFO] creating rrd-file for $service->$ds_name: '$rrd_file'";
     mkpath(dirname($rrd_file), {mode => oct(777)});
     my @args = (
         $rrd_file,
+	'--start',
+	$start_time,
         sprintf('DS:42:%s:600:%s:%s', 
                 $ds_config->{type}, $ds_config->{min}, $ds_config->{max}),
     );
@@ -433,7 +552,7 @@ sub _create_rrd_file {
     my $resolution = $config->{graph_data_size};
     if ($resolution eq 'normal') {
         push (@args,
-              "RRA:AVERAGE:0.5:1:576",   # resolution 5 minutes
+	      "RRA:AVERAGE:0.5:1:105408",   # 366 days, resolution 5 minutes
               "RRA:MIN:0.5:1:576",
               "RRA:MAX:0.5:1:576",
               "RRA:AVERAGE:0.5:6:432",   # 9 days, resolution 30 minutes

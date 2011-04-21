@@ -1,6 +1,6 @@
 package Munin::Master::Node;
 
-# $Id$
+# $Id: Node.pm 3484 2010-04-14 18:37:51Z bldewolf $
 
 # This module is used by UpdateWorker to keep in touch with a node and
 # parse some of the output.
@@ -50,6 +50,120 @@ sub do_in_session {
     return 0;  # _do_connect failed.
 }
 
+sub get_hostname {
+    my ($self) = @_;
+
+    my $greeting = $self->_node_read_single();
+    $self->{node_name} = $self->_extract_name_from_greeting($greeting);
+}
+
+sub get_redis_hostname {
+    my ($self) = @_;
+
+    $self->{node_name} = $self->_read_redis_node_line('get hostname');
+}
+
+sub get_redis_plugin_data {
+    my ($self, $masterIP) = @_;
+
+	my ($count, $plugin_data, $tag);
+
+	while(1) {
+		$count = $self->_read_redis_count("llen $masterIP"); 
+		return undef() if $count < 1;
+
+		return $self->_read_redis_node_line("lpop $masterIP");
+	}
+}
+
+sub process_redis_plugin_config {
+	my ($self, $service) = @_;
+
+	my ($count, $i, @lines);
+
+	$count = $self->_read_redis_count("exists +Plugin:$service"); 
+	return () if $count == 0;
+
+	@lines = split(/[\\]+/, $self->_read_redis_node_line("get +Plugin:$service"));
+
+	$service = $self->_sanitise_plugin_name($service);
+
+	return $self->parse_service_config($service,@lines);
+}
+
+sub process_redis_plugin_data {
+	my ($self, $plugin, $time, $plugin_data) = @_;
+
+	my ($count, $i, @lines, $tag, $value);
+
+	@lines = split(/[\\]+/, $plugin_data);
+	for ($i=0; $i<=$#lines; $i++) {
+		($tag, $value) = split(/[\s]+/, $lines[$i], 2);
+		$lines[$i] = sprintf("%s %s:%s\n", $tag, $time, $value) if $tag =~ /.value/;
+		DEBUG "[DEBUG] process_redis_plugin_data: $lines[$i]";
+	}
+
+    $plugin = $self->_sanitise_plugin_name($plugin);
+
+    return $self->parse_service_data($plugin,@lines);
+}
+
+
+sub _read_redis_count {
+	my ($self, $cmd) = @_;
+
+	my ($count, $linecount);
+
+	LOGCROAK("[FATAL] Redis read count: No command specified.") if !defined($cmd);
+
+	$self->_node_write_single("$cmd\n");
+
+	while(1) {
+		$linecount = $self->_node_read_single();
+		last if $linecount =~ /^[*:]/;
+	}
+	$count = substr($linecount,1)*1;
+
+	DEBUG "[DEBUG] From Redis: '$cmd' yealds count=$count";
+
+	return $count
+}
+
+sub _read_redis_node_line {
+	my ($self, $cmd) = @_;
+
+	my ($line, $len1, $len2);
+
+	if (defined($cmd)) {
+		DEBUG "[DEBUG] Node->_read_redis_node_line: cmd=$cmd";
+		$self->_node_write_single("$cmd\n") if defined($cmd);
+	} else {
+		DEBUG "[DEBUG] Node->_read_redis_node_line: cmd=<none>";
+	}
+
+
+	while(1) {
+		$len1 = $self->_node_read_single();
+		chop($len1);
+
+		LOGCROAK("[FATAL] Redis read: Returned no data") if $len1 eq '$-1';
+
+		last if substr($len1,0,1) eq '$';
+	}
+	$len1 = substr($len1,1)*1;
+	
+	$line = $self->_node_read_single();
+	chop($line);
+	$len2 = length($line);
+
+	if ($len1 != $len2) {
+		WARN "[WARNING] Node.pm_redis(_read_redis_line) line length mismatch: $len1/$len2, $line.";
+	}
+	
+	DEBUG "[DEBUG] From Redis: length=$len2, data=$line";
+
+	return $line;
+}
 
 sub _do_connect {
     # Connect to a munin node.  Return false if not, true otherwise.
@@ -67,9 +181,7 @@ sub _do_connect {
 	ERROR "Failed to connect to node $self->{address}:$self->{port}/tcp : $!";
 	return 0;
     }
-
-    my $greeting = $self->_node_read_single();
-    $self->{node_name} = $self->_extract_name_from_greeting($greeting);
+#		$self->get_hostname();
     return 1;
 }
 
