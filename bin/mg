@@ -1,0 +1,140 @@
+#!/usr/bin/perl
+	$ENV{'PATH'} = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin';
+
+#
+#	Set parameter defaults.
+#
+	$tval = 0;			# default time
+	$rval = 0;			# default range
+	$hval = '';			# no default host
+	$sval = '';			# no default service
+	$Hval = 600;		# default height
+	$Wval = 1200;		# default width
+	$Fval = 'png';		# default image format
+	$cval = 0;			# default copy flag
+	$nval = 0;			# default caption flag
+
+#
+#	Process command arguments.
+#
+	while (@ARGV) {
+		$key = shift();
+		$tval = abs(shift()) if $key eq '-t';
+		$rval = shift() if $key eq '-r';
+		$hval = shift() if $key eq '-h';
+		$sval = shift() if $key eq '-s';
+		$Hval = shift() if $key eq '-H';
+		$Wval = shift() if $key eq '-W';
+		$Fval = shift() if $key eq '-F';
+		$cval = $cval ^ 1 if $key eq '-c';
+		$nval = $nval ^ 1 if $key eq '-n';
+	}
+
+#
+#	Print command help if mandtory parameters missing.
+#
+	if ($hval eq '' || $sval eq '') {
+		print "Generate Munin graphs.\n\nSynopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30] [-H height] [-W width] [-c]\n\n";
+		print "mg will save the requested graph in '/tmp/mg/current.png'. If the '-c' option is specified, a copy\n";
+		print "of 'current.png' will be made and saved in '/tmp/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>.png'\n";
+		print "Specfying a 'timeinsec' value of zero will graph the last 'rangeinhrs' of data and display the start\ntime.\n\n";
+		print "mg MUST be run as user 'munin'.\n";
+		exit;
+	}
+
+#
+#	Ensure we are running as the munin user.
+#
+	if (`whoami` ne "munin\n") {
+		print "Command MUST be run as user 'munin'.\n";
+		exit;
+	}
+
+#
+#	Verify valid host and service names.
+#
+	$x = sprintf('/%s\-%s\-', $hval, $sval);
+	@x = `find /var/lib/munin | grep '$x'`;
+	if ($#x < 0) {
+		$x = sprintf('\-%s\-', $sval);
+		@x = `find /var/lib/munin | grep '$x'`;
+		if ($#x < 0) {
+			print "Invalid service ($sval) value specified.\n";
+		} else {
+			print "Invalid hostname ($hval) value specified.\n";
+		}
+		exit;
+	}
+
+#
+#	Establish output directory and finalize time range.
+#
+	system('mkdir -p /tmp/mg');
+
+	$time = $tval * 1;
+	$range = $rval * 3600;
+
+	$now = `date +%s`;
+	$end = "'0'\\\n";
+	if ($time == 0 && $range == 0) {
+		$time = $now - (30 * 3600);
+		$range = 0;
+	} elsif ($time == 0) {
+		$time = $now - $range;
+		print "Base time set to: $time\n";
+		$range = 0;
+	} elsif ($range >= ($now - $time)) {
+		$range = 0;
+	}
+
+	$start = sprintf("'-%dh'\\\n", int(($now + 1800 - $time) / 3600));
+	$end = sprintf("'-%dh'\\\n", int(($now + 1800 - $time - $range) / 3600)) if $range > 0;
+
+#
+#	Make sure munin-graph is not already running.
+#
+	while (-e '/var/run/munin/munin-graph.lock') { }
+
+#
+#	Run munin-graph. Retrieve and modify resulting rrdtool graph parameters.
+#
+	@x = `/usr/share/munin/munin-graph --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
+	for ($i=0; $i<=$#x; $i++) {
+		chop($x[$i]);
+		chop($x[$i]) if $i < $#x;
+
+                $x[$i] = "'/tmp/mg/current.png'" if $x[$i] =~ /\.png/;
+                $x[$i+1] = $start if $x[$i] =~ /--start/;
+                if ($x[$i] =~ /--end/) {
+					if ($range == 0 ) {
+						$x[$i] = '';
+						$x[$i+1] = '';
+					} else {
+						$x[$i+1] = $end;
+					}
+				}
+                $x[$i+1] = "'$Hval'\\\n" if $x[$i] =~ /--height/;
+                $x[$i+1] = "'$Wval'\\\n" if $x[$i] =~ /--width/;
+
+				if ($nval) {
+#					$x[$i] = '' if $x[$i] =~ /COMMENT/ && $x[$i] !~ /Last update/;
+					$x[$i] = '' if $x[$i] =~ /COMMENT/;
+					$x[$i] = '' if $x[$i] =~ /GPRINT/;
+				}
+	}
+
+#
+#	Run the modified rrdtool graph.
+#
+	$x = join(' ', @x);
+#	print "$x\n";
+	@x = `rm -f '/tmp/mg/current.png'; $x`;
+
+#
+#	If requested, keep permanent copy of graph file.
+#
+	if ($cval) {
+		$x = $range / 3600;
+		$y = sprintf('%s-%s-%s-%s-%sx%s.png', $hval, $sval, $time, $x, $Hval, $Wval);
+		system("cd /tmp/mg; cp -f current.png '$y'");
+	}
