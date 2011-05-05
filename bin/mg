@@ -101,7 +101,8 @@
 	@x = `/usr/share/munin/munin-graph --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
 	for ($i=0; $i<=$#x; $i++) {
 		chop($x[$i]);
-		chop($x[$i]) if $i < $#x;
+#		chop($x[$i]) if $i < $#x;
+		chop($x[$i]) if $x[$i] =~ /[\\]$/;
 
                 $x[$i] = "'/tmp/mg/current.png'" if $x[$i] =~ /\.png/;
                 $x[$i+1] = $start if $x[$i] =~ /--start/;
