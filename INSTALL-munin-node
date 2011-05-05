@@ -5,6 +5,14 @@
 	$ENV{'PATH'} = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin';
 
 #
+#       Check that the current directory is where the munin-redis package resides.
+#
+	if (!(-e 'bin/munin-node-redis')) {
+		print "INSTALL-munin-node: You need to change directory to where the munin-redis package resides.\n";
+		exit;
+	}
+
+#
 # 	Check for prerequisites.
 #
 	@x = `rpm -qa | grep 'redis'`;
@@ -15,7 +23,7 @@
 
 	@x = `rpm -qa | grep 'munin-node-1.4.5'`;
 	if ($#x < 0) {
-		print "INSTALL-munin-node: You need to install redis.\n";
+		print "INSTALL-munin-node: You need to install munin-node-1.4.5.\n";
 		exit;
 	}
 
