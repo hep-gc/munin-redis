@@ -34,7 +34,37 @@ o munin-node-1.4.5 (munin-common-1.4.5)
 This installation scripts of this package also assume that it will be installed on an RPM
 based linux distribution. 
 
-3. Files.
+3. Prerequisite Configuration.
+
+3.1 Munin
+
+The munin master configuration file is located at /etc/munin/munin.conf. Among other things (see
+munin documentation for details), this file defines the munin nodes from which data is to be collected.
+Normally, data is retieved from munin node server tasks running on the hosts identified. If the data is 
+be retrieved from redis, a port sepecification of "6379" must be made for each corresponding munin node. 
+
+3.2 Munin-node
+
+The munin node configuration file is located at /etc/munin/munin-node.conf. Two parameters within this
+file are also used by the redis data collection task "/usr/sbin/munin-node-redis":
+
+o host_name    - The advertised munin node hostname.
+o allow        - One or more allow statements specify which munin masters may collect data from this
+               - munin node. "/usr/sbin/munin-node-redis" will created a dedicated stack for each munin
+			     master listed in this file unless it is overridden by the /etc/munin/munin-node-redis.conf
+				 (see below).
+
+3.3 Redis
+
+The redis configuration file is located at /etc/redis.conf. Two parameters within this file are also
+used by the redis data collection task "/usr/sbin/munin-node-redis":
+
+o bind         - If specified, must provide the IP address accessable by each and every munin
+                 master collecting data from this munin node.
+o port         - Must default to or specified as 6379.
+
+
+4. Files.
 
 The package contains the following:
 
@@ -56,21 +86,22 @@ The package contains the following:
 ./INSTALL-munin-node				Installation script for a worker node.
 ./README							This README file.
 
-4. Installation.
+5. Installation.
 
-4.1 Worker Node.
+5.1 Worker Node.
 
 o Ensure prerequisites installed.
 o As root, run the INSTALL-munin-node.
 o Modify worker node's firewall to allow a munin master access to redis through port 6379.
-o If required, modify the sample /etc/munin/munin-node-redis.conf configuration file. Normally,
+o If required, modify the sample /etc/munin/munin-node-redis.conf configuration file. Use this file
+  to list the IPs of master nodes that will be retrieving data from your redis server. Normally,
   munin-node-redis uses the "ALLOW" statements in the standard munin-node.conf file to determine
   which master nodes will be retrieving data. It is assumed that all master nodes will be retrieving
   data through redis, and a dedicated stack is provided for each one of them. If this is not the
   case, this file should be used as a replacement specification so as to avoid stacking data
   unnecessarily.
 
-4.2 Master Node.
+5.2 Master Node.
 
 o Ensure prerequisites installed.
 o As root, run the INSTALL-munin.
@@ -90,3 +121,27 @@ in the traditional way from one worker node and from redis on a second worker no
    address 192.168.2.46
       port 6379
 
+6. Is it working?
+
+Use the "redis-cli" command to verify the operation of munin-node-redis and check the accessability of
+a munin node from a munin master. The following examples provide appropriate sample results:
+
+o redis-cli -h some.munin.node keys '*'
+	1. "+Plugin:cpu"
+	2. "+Plugin:if_eth1"
+	3. "hostname"
+	4. "+Plugin:if_eth2"
+	5. "+Plugin:if_bond0"
+	6. "123.12.124.1"
+	7. "+Plugin:if_eth3"
+
+o redis-cli -h some.munin.node llen 123.12.124.1
+	(integer) 46
+
+o redis-cli -h some.munin.node lrange 123.12.124.1 0 4
+	1. if_eth2 1304978522\down.value 1336783933879\up.value 9785629692524\
+	2. cpu 1304978522\user.value 21708522\nice.value 130017151\system.value 31522003\idle.value 10466661148\iowait.value 15358363\irq.value 517932\softirq.value 15426340\steal.value 0\
+	df 1304978522\_dev_mapper_VolGroup00_LogVol00.value 16.5813705538579\_dev_mapper_VolGroup00_LogVol02.value 0.323430150848438\_dev_sdc1.value 13.0868807827511\_dev_shm.value 0\_dev_sda1.value 36.557558432028\_dev_sdb1.value 23.6127534433507\
+	3. if_eth3 1304978522\down.value 1085119065088\up.value 8893652594066\
+	4. if_bond0 1304978522\down.value 4752135687971\up.value 56663271471990\
+	5. if_eth1 1304978522\down.value 1792681287232\up.value 13181952356502\
