@@ -35,18 +35,9 @@
 #
 	if ($hval eq '' || $sval eq '') {
 		print "Generate Munin graphs.\n\nSynopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30] [-H height] [-W width] [-c]\n\n";
-		print "mg will save the requested graph in '/tmp/mg/current.png'. If the '-c' option is specified, a copy\n";
-		print "of 'current.png' will be made and saved in '/tmp/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>.png'\n";
+		print "mg will save the requested graph in '$ENV{'HOME'}/mg/current.png'. If the '-c' option is specified, a copy\n";
+		print "of 'current.png' will be made and saved in '$ENV{'HOME'}/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>.png'\n";
 		print "Specfying a 'timeinsec' value of zero will graph the last 'rangeinhrs' of data and display the start\ntime.\n\n";
-		print "mg MUST be run as user 'munin'.\n";
-		exit;
-	}
-
-#
-#	Ensure we are running as the munin user.
-#
-	if (`whoami` ne "munin\n") {
-		print "Command MUST be run as user 'munin'.\n";
 		exit;
 	}
 
@@ -54,10 +45,10 @@
 #	Verify valid host and service names.
 #
 	$x = sprintf('/%s\-%s\-', $hval, $sval);
-	@x = `find /var/lib/munin | grep '$x'`;
+	@x = `find /var/lib/munin 2>/dev/null | grep '$x'`;
 	if ($#x < 0) {
 		$x = sprintf('\-%s\-', $sval);
-		@x = `find /var/lib/munin | grep '$x'`;
+		@x = `find /var/lib/munin 2>/dev/null | grep '$x'`;
 		if ($#x < 0) {
 			print "Invalid service ($sval) value specified.\n";
 		} else {
@@ -67,10 +58,8 @@
 	}
 
 #
-#	Establish output directory and finalize time range.
+#	Finalize time range.
 #
-	system('mkdir -p /tmp/mg');
-
 	$time = $tval * 1;
 	$range = $rval * 3600;
 
@@ -91,20 +80,29 @@
 	$end = sprintf("'-%dh'\\\n", int(($now + 1800 - $time - $range) / 3600)) if $range > 0;
 
 #
-#	Make sure munin-graph is not already running.
+#	Establish output directory and configuration file.
 #
-	while (-e '/var/run/munin/munin-graph.lock') { }
+	if (!(-e "$ENV{'HOME'}/mg/etc/munin.conf")) {
+		system("mkdir -p $ENV{'HOME'}/mg/etc");
+		open(CF, ">$ENV{'HOME'}/mg/etc/munin.conf");
+		@x = `cat /etc/munin/munin.conf`;
+		for ($i=0; $i<=$#x; $i++) {
+			printf CF $x[$i];
+			printf CF "htmldir $ENV{'HOME'}/mg/etc\nlogdir $ENV{'HOME'}/mg/etc\nrundir $ENV{'HOME'}/mg/etc\n" if $x[$i] =~ /rundir/;
+
+		}
+		close(CF);
+	}
 
 #
 #	Run munin-graph. Retrieve and modify resulting rrdtool graph parameters.
 #
-	@x = `/usr/share/munin/munin-graph --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
+	@x = `/usr/share/munin/munin-graph --config /home/crlb/mg/etc/munin.conf --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
 	for ($i=0; $i<=$#x; $i++) {
 		chop($x[$i]);
-#		chop($x[$i]) if $i < $#x;
-		chop($x[$i]) if $x[$i] =~ /[\\]$/;
+		chop($x[$i]) if $i < $#x;
 
-                $x[$i] = "'/tmp/mg/current.png'" if $x[$i] =~ /\.png/;
+                $x[$i] = "'/home/crlb/mg/current.png'" if $x[$i] =~ /\.png/;
                 $x[$i+1] = $start if $x[$i] =~ /--start/;
                 if ($x[$i] =~ /--end/) {
 					if ($range == 0 ) {
@@ -129,7 +127,7 @@
 #
 	$x = join(' ', @x);
 #	print "$x\n";
-	@x = `rm -f '/tmp/mg/current.png'; $x`;
+	@x = `rm -f '$ENV{'HOME'}/mg/current.png'; $x`;
 
 #
 #	If requested, keep permanent copy of graph file.
@@ -137,5 +135,5 @@
 	if ($cval) {
 		$x = $range / 3600;
 		$y = sprintf('%s-%s-%s-%s-%sx%s.png', $hval, $sval, $time, $x, $Hval, $Wval);
-		system("cd /tmp/mg; cp -f current.png '$y'");
+		system("cd $ENV{'HOME'}/mg; cp -f current.png '$y'");
 	}
