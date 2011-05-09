@@ -25,6 +25,10 @@
 #
 #	Retrieve the host and port for the Redis server.
 #
+	$Hostname = `hostname`; chop($Hostname);
+	$RedisHost = `host $Hostname | awk '{print \$4}'`;
+	chop($RedisHost);
+	$RedisPort = 6379;
 	@x = `awk '/^bind|^port /' /etc/redis.conf`;
 	foreach $x (@x) {
 		@y = split(/[\s\n]+/, $x);
@@ -38,7 +42,6 @@
 #
 #	Retrieve the IP address for all configured Munin masters.
 #
-	$Hostname = `hostname`; chop($Hostname);
 	@x = `awk '/^host_name |^allow /' $etcdir/munin-node.conf`;
 	foreach $x (@x) {
 		@y = split(/[\s\n]+/, $x);
