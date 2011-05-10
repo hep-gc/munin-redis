@@ -40,5 +40,5 @@
 #
 	system('cp bin/munin-node-redis /usr/sbin/');
 	system('cp cron/munin-node-redis /etc/cron.d/');
-	system('cp etc/munin-node-redis.conf /etc/munin/');
+	system('cp etc/munin-node-redis.conf /etc/munin/') if !(-e '/etc/munin/munin-node-redis.conf');
 

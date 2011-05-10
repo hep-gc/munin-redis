@@ -52,13 +52,17 @@
 #
 	if (-e "$libdir/Node.pm") {
 		system("cp munin/1.4.5/master/lib/Munin/Master/Node.pm $libdir/Node.pm_redis");
-		system("mv $libdir/Node.pm $libdir/Node.pm_original");
-		system("ln -s $libdir/Node.pm_redis $libdir/Node.pm");
+		if (!(-e "$libdir/Node.pm_original")) {
+			system("mv $libdir/Node.pm $libdir/Node.pm_original");
+			system("ln -s $libdir/Node.pm_redis $libdir/Node.pm");
+		}
 	}
 
 	if (-e "$libdir/UpdateWorker.pm") {
 		system("cp munin/1.4.5/master/lib/Munin/Master/UpdateWorker.pm $libdir/UpdateWorker.pm_redis");
-		system("mv $libdir/UpdateWorker.pm $libdir/UpdateWorker.pm_original");
-		system("ln -s $libdir/UpdateWorker.pm_redis $libdir/UpdateWorker.pm");
+		if (!(-e "$libdir/UpdateWorker.pm_original")) {
+			system("mv $libdir/UpdateWorker.pm $libdir/UpdateWorker.pm_original");
+			system("ln -s $libdir/UpdateWorker.pm_redis $libdir/UpdateWorker.pm");
+		}
 	}
 
