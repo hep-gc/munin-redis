@@ -102,6 +102,7 @@
 		chop($x[$i]);
 		chop($x[$i]) if $i < $#x;
 
+                $x[$i] =~ s/ - by day//;
                 $x[$i] = "'/home/crlb/mg/current.png'" if $x[$i] =~ /\.png/;
                 $x[$i+1] = $start if $x[$i] =~ /--start/;
                 if ($x[$i] =~ /--end/) {
