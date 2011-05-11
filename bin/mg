@@ -134,25 +134,25 @@
 		chop($x[$i]);
 		chop($x[$i]) if $i < $#x;
 
-				$x[$i] =~ s/ - by day//;
-                $x[$i] = "'$ENV{'HOME'}/mg/current.png'" if $x[$i] =~ /\.png/;
-                $x[$i+1] = $start if $x[$i] =~ /--start/;
-                if ($x[$i] =~ /--end/) {
-					if ($range == 0 ) {
-						$x[$i] = '';
-						$x[$i+1] = '';
-					} else {
-						$x[$i+1] = $end;
-					}
-				}
-                $x[$i+1] = "'$Hval'\\\n" if $x[$i] =~ /--height/;
-                $x[$i+1] = "'$Wval'\\\n" if $x[$i] =~ /--width/;
+		$x[$i] =~ s/ - by day//;
+		$x[$i] = "'$ENV{'HOME'}/mg/current.png'" if $x[$i] =~ /\.png/;
+		$x[$i+1] = $start if $x[$i] =~ /--start/;
+		if ($x[$i] =~ /--end/) {
+			if ($range == 0 ) {
+				$x[$i] = '';
+				$x[$i+1] = '';
+			} else {
+				$x[$i+1] = $end;
+			}
+		}
+		$x[$i+1] = "'$Hval'\\\n" if $x[$i] =~ /--height/;
+		$x[$i+1] = "'$Wval'\\\n" if $x[$i] =~ /--width/;
 
-				if ($nval) {
-#					$x[$i] = '' if $x[$i] =~ /COMMENT/ && $x[$i] !~ /Last update/;
-					$x[$i] = '' if $x[$i] =~ /COMMENT/;
-					$x[$i] = '' if $x[$i] =~ /GPRINT/;
-				}
+		if ($nval) {
+#			$x[$i] = '' if $x[$i] =~ /COMMENT/ && $x[$i] !~ /Last update/;
+			$x[$i] = '' if $x[$i] =~ /COMMENT/;
+			$x[$i] = '' if $x[$i] =~ /GPRINT/;
+		}
 	}
 
 #
