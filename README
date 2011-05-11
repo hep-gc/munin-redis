@@ -107,6 +107,10 @@ The package contains the following:
 															plus ("+")/minus ("-") to LINE/AREA plotting.
                                                             See "Plugin Installation" below.
 
+./munin/plugins/xrdfiles_uvic							UVic plugin to graph XrrotD connections. Plugin 
+															uses the "lsof" command and must be run as
+															root. See "Plugin Installation" below.
+
 ./README												This README file.
 
 5. Installation.
@@ -157,6 +161,11 @@ o ln -s /usr/share/munin/plugins/condor_nodes_uvic nodes
 o ln -s /usr/share/munin/plugins/if_uvic_ if_eth0
 o ln -s /usr/share/munin/plugins/if_uvic_ if_eth1
 o ln -s /usr/share/munin/plugins/if_uvic_ if_bond0
+o ln -s /usr/share/munin/plugins/xrdfiles_uvic xrdfiles
+
+The xrdfiles_uvic plugin requires the "lsof" command and must be run as root by setting the "user" 
+parameter in the plugin configuration file (/etc/munin/plugin-conf.d/munin-node. See munin documentation
+for further information).
 
 6. Is it working?
 
