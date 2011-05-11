@@ -1,0 +1,98 @@
+#!/bin/bash
+	PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
+
+#		cloud_status -l | sort  | awk 'BEGIN{} /[a-zA-Z0-9]/ {print ">>>" $0 "<<<"}'
+#		exit
+	if [ "$1" = "config" ]; then
+#		cat /etc/munin/plugins/clouds | sort | awk \
+		cloud_status -l | sort | awk \
+			'BEGIN{ \
+				colours[1,1] = "000088"; \
+				colours[1,2] = "0000ff"; \
+				colours[1,3] = "8888ff"; \
+				colours[2,1] = "008800"; \
+				colours[2,2] = "00ff00"; \
+				colours[2,3] = "88ff88"; \
+				colours[3,1] = "008888"; \
+				colours[3,2] = "00ffff"; \
+				colours[3,3] = "88ffff"; \
+				colours[4,1] = "880000"; \
+				colours[4,2] = "ff0000"; \
+				colours[4,3] = "ff8888"; \
+				colours[5,1] = "880088"; \
+				colours[5,2] = "ff00ff"; \
+				colours[5,3] = "ff88ff"; \
+				colours[6,1] = "888800"; \
+				colours[6,2] = "ffff00"; \
+				colours[6,3] = "ffff88"; \
+
+				i = 0; \
+
+				states[1] = "Error"; \
+				states[2] = "Running"; \
+				states[3] = "Starting" \
+				} \
+
+			/[a-zA-Z0-9]/ \
+
+			{ \
+				if ($1=="") next; \
+				i = i + 1; \
+				clouds[i] = $1 \
+				} \
+
+			END{ \
+				print "graph_title Cloud Scheduler VMs by Cloud"; \
+				print "graph_category Cloud"; \
+				print "graph_vlabel Virtual Machines"; \
+				print "graph_width 800"; \
+				print "graph_height 500\n"; \
+
+				AreaStack = "AREA"; \
+				for (cloud in clouds) \
+					for (state in states) { \
+						colour = 1 + (cloud % 6); \
+						print clouds[cloud] "-" states[state] ".label " states[state] " on " clouds[cloud] "\n" \
+							clouds[cloud] "-" states[state] ".draw " AreaStack "\n" \
+							clouds[cloud] "-" states[state] ".colour " colours[cloud,state] "\n"; \
+						AreaStack = "STACK"; \
+						} \
+				}'
+	else
+#				while (("cat /etc/munin/plugins/clouds | sort" | getline line)>0){ \
+		cloud_status -m | awk \
+			'BEGIN{ \
+#				addresses["alto.cloud.nrc.ca"] = "NRC"; \
+#				addresses["elephant.heprc.uvic.ca"] = "Elephant"; \
+#				addresses["svc.uc.futuregrid.org"] = "FGHotel"; \
+
+				i = 0; \
+				while (("cloud_status -l | sort" | getline line)>0) { \
+					split(line, words); \
+					if (words[1]!="") { \
+						i = i + 1; \
+						clouds[i] = words[1] \
+						} \
+					} \
+
+				states[1] = "Error"; \
+				states[2] = "Running"; \
+				states[3] = "Starting" \
+				} \
+
+			{ \
+				if ($0=="" || $1=="ID" || $1=="Total") next; \
+				state="Error"; \
+				if ($4=="Running" || $4=="ExpiredProxy" || $4=="Retiring") state="Running"; \
+				if ($4=="Starting") state="Starting"; \
+#				count[addresses[$5],state]=count[addresses[$5],state]+1 \
+				count[$5,state]=count[$5,state]+1 \
+				} \
+
+			END{ \
+				for (cloud in clouds) \
+					for (state in states) { \
+						print clouds[cloud] "-" states[state] ".value " count[clouds[cloud],states[state]]+0 \
+						} \
+				}'
+	fi
