@@ -83,7 +83,7 @@
 	} else {
 		$oldckpt = '<none>';
 	}
-	$newckpt = `ls -l $etcdir/plugins | sha1sum -`;
+	$newckpt = `ls -lL $etcdir/plugins | sha1sum -`;
 	if ($oldckpt ne $newckpt) {
 		system("echo '$newckpt' >$dbdir/munin-node-redis-ckpt");
 		system("redis-cli -h $RedisHost -p $RedisPort del hostname >/dev/null");
