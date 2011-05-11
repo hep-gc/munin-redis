@@ -129,13 +129,13 @@
 #
 #	Run munin-graph. Retrieve and modify resulting rrdtool graph parameters.
 #
-	@x = `/usr/share/munin/munin-graph --config /home/crlb/mg/etc/munin.conf --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
+	@x = `/usr/share/munin/munin-graph --config $ENV{'HOME'}/mg/etc/munin.conf --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
 	for ($i=0; $i<=$#x; $i++) {
 		chop($x[$i]);
 		chop($x[$i]) if $i < $#x;
 
 				$x[$i] =~ s/ - by day//;
-                $x[$i] = "'/home/crlb/mg/current.png'" if $x[$i] =~ /\.png/;
+                $x[$i] = "'$ENV{'HOME'}/mg/current.png'" if $x[$i] =~ /\.png/;
                 $x[$i+1] = $start if $x[$i] =~ /--start/;
                 if ($x[$i] =~ /--end/) {
 					if ($range == 0 ) {
