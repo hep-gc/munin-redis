@@ -68,23 +68,46 @@ o port         - Must default to or specified as 6379.
 
 The package contains the following:
 
-./bin/mg							"mg" stands for "munin graph". This can create
-									munin graphs for any time range that's in the rrd
-									database. Running the command without arguments
-									provides syntax.
-./bin/munin-node-redis				Worker node script to run the munin plugins and 
-										gather statistics.
-./bin/Node.pm_redis					Master node perl library module updated to provide
-										communication with the redis database.
-./bin/UpdateWorker.pm_redis			Master node perl library module updated to provide
-										communication with the redis database.
-./cron/munin-node-redis				Worker node crontab to be place in /etc/cron.d
-./etc/munin-node-redis.conf			Sample overide file (see 4.1 below).
-./INSTALL-both						Installation script for a node that will be both
-										a master and a worker node.
-./INSTALL-munin						Installation script for a master node.
-./INSTALL-munin-node				Installation script for a worker node.
-./README							This README file.
+./bin/mg												"mg" stands for "munin graph". This can create
+														munin graphs for any time range that's in the rrd
+														database. Running the command without arguments
+														provides command information.
+
+./bin/munin-node-redis									Worker node script to run the munin plugins and 
+															gather statistics.
+
+./cron/munin-node-redis									Worker node crontab to be place in /etc/cron.d
+
+/etc/munin-node-redis.conf								Sample overide file (see 4.1 below).
+
+./INSTALL-both											Installation script for a node that will be both
+															a master and a worker node.
+
+./INSTALL-munin											Installation script for a master node.
+
+./INSTALL-munin-node									Installation script for a worker node.
+
+./munin/1.4.5/master/lib/Munin/Master/Node.pm			Master node perl library module updated to provide
+															communication with the redis database.
+
+./munin/1.4.5/master/lib/Munin/Master/UpdateWorker.pm	Master node perl library module updated to provide
+															communication with the redis database.
+
+./munin/plugins/cloud_scheduler_vms_uvic				UVic plugin to graph Virtual Machines on configured
+															clouds. See "Plugin Installation" below.
+
+./munin/plugins/condor_jobs_uvic						UVic plugin to graph Condor jobs. See "Plugin
+															Installation" below.
+
+./munin/plugins/condor_nodes_uvic						UVic plugin to graph Condor worker nodes (VMs). See
+                                                            "Plugin Installation" below.
+
+./munin/plugins/if_uvic_								UVic modification to the standard "if_" plugin to 
+															change transmit and receive plotting from
+															plus ("+")/minus ("-") to LINE/AREA plotting.
+                                                            See "Plugin Installation" below.
+
+./README												This README file.
 
 5. Installation.
 
@@ -121,6 +144,20 @@ in the traditional way from one worker node and from redis on a second worker no
    address 192.168.2.46
       port 6379
 
+5.3 Plugin Installation.
+
+No installation script is provided for the plugins provided with this package. The recommended method of plugin 
+installation is to move the required plugin to the munin-node installation directory (/usr/share/munin/plugins) 
+and create an appropriate symbolic link from the plugin configuration directory (/etc/munin/plugins). The
+following links for the UVic plugins are recommended:
+
+o ln -s /usr/share/munin/plugins/cloud_scheduler_vms_uvic csvms
+o ln -s /usr/share/munin/plugins/condor_jobs_uvic jobs
+o ln -s /usr/share/munin/plugins/condor_nodes_uvic nodes
+o ln -s /usr/share/munin/plugins/if_uvic_ if_eth0
+o ln -s /usr/share/munin/plugins/if_uvic_ if_eth1
+o ln -s /usr/share/munin/plugins/if_uvic_ if_bond0
+
 6. Is it working?
 
 Use the "redis-cli" command to verify the operation of munin-node-redis and check the accessability of
@@ -145,3 +182,20 @@ o redis-cli -h some.munin.node lrange 123.12.124.1 0 4
 	3. if_eth3 1304978522\down.value 1085119065088\up.value 8893652594066\
 	4. if_bond0 1304978522\down.value 4752135687971\up.value 56663271471990\
 	5. if_eth1 1304978522\down.value 1792681287232\up.value 13181952356502\
+
+7. Checkiing and resetting plugin configuration information.
+
+Munin masters required plugins to provide configuration information when called with the "config" parameter,
+and data values otherwise (see munin documentation for more information). The muni-node-redis package provides 
+plugin configuration information to munin masters via static variables within the redis database. An attempt
+is made to verify the saved configuration each time data values are stored. However, it is possible that
+plugin configuration changes are not detected that the static variables become stale. A single variable is
+created for each plugin (see "Is it working?" above). To review the saved configuration information for any
+specific plugin, use the following command:
+
+o redis-cli -h some.munin.node get "+Plugin:cpu"
+	"graph_title CPU usage\\graph_order system user nice idle iowait irq softirq\\graph_args --base 1000 -r --lower-limit 0 --upper-limit 1600\\graph_vlabel %\\graph_scale no\\graph_info This graph shows how CPU time is spent.\\graph_category system\\graph_period second\\system.label system\\system.draw AREA\\system.min 0\\system.type DERIVE\\system.info CPU time spent by the kernel in system activities\\user.label user\\user.draw STACK\\user.min 0\\user.type DERIVE\\user.info CPU time spent by normal programs and daemons\\nice.label nice\\nice.draw STACK\\nice.min 0\\nice.type DERIVE\\nice.info CPU time spent by nice(1)d programs\\idle.label idle\\idle.draw STACK\\idle.min 0\\idle.type DERIVE\\idle.info Idle CPU time\\iowait.label iowait\\iowait.draw STACK\\iowait.min 0\\iowait.type DERIVE\\iowait.info CPU time spent waiting for I/O operations to finish when there is nothing else to do.\\irq.label irq\\irq.draw STACK\\irq.min 0\\irq.type DERIVE\\irq.info CPU time spent handling interrupts\\softirq.label softirq\\softirq.draw STACK\\softirq.min 0\\softirq.type DERIVE\\softirq.info CPU time spent handling \"batched\" interrupts\\steal.label steal\\steal.draw STACK\\steal.min 0\\steal.type DERIVE\\steal.info The time that a virtual CPU had runnable tasks, but the virtual CPU itself was not running\\
+
+To force a reset of all plugin configuration variables, issue the command:
+
+o redis-cli -h some.munin.node del hostname
