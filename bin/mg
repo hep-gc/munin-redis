@@ -2,6 +2,15 @@
 	$ENV{'PATH'} = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin';
 
 #
+#	Make sure we can read the master configuration file.
+#
+	 if (!(-e '/etc/munin/munin.conf')) {
+		print "This command MUST be run on a munin master node. If this is a munin master node,\n";
+		print "mg is unable to find the /etc/munin/munin.conf configuration file.\n";
+		exit;
+	 }
+
+#
 #	Set parameter defaults.
 #
 	$tval = 0;			# default time
@@ -42,20 +51,43 @@
 	}
 
 #
-#	Verify valid host and service names.
+#	Locate the munin master data directory via the master configuration file.
 #
-	$x = sprintf('/%s\-%s\-', $hval, $sval);
-	@x = `find /var/lib/munin 2>/dev/null | grep '$x'`;
-	if ($#x < 0) {
-		$x = sprintf('\-%s\-', $sval);
-		@x = `find /var/lib/munin 2>/dev/null | grep '$x'`;
-		if ($#x < 0) {
-			print "Invalid service ($sval) value specified.\n";
-		} else {
-			print "Invalid hostname ($hval) value specified.\n";
-		}
+
+	 @x = `awk '/dbdir/' /etc/munin/munin.conf`;
+	 if ($#x>-1) {
+		@y = split(/[\s\n]+/, $x[0]);
+		$DBdir = $y[$#y];
+	 } else {
+		$DBdir = '/var/lib/munin';
+	 }
+
+#
+#	Retrieve and validate hosts and services.
+#
+	 @x = `awk 'BEGIN{FS=";"} {print \$2}' $DBdir/datafile`;
+	 for ($i=0; $i<=$#x; $i++) {
+		($host, $x) = split(/[:]/, $x[$i]);
+		$Hosts{$host} = 1 if $host =~ /[a-zA-Z0-9]/;
+		($service) = split(/[.]/, $x);
+		$Services{$service} = 1 if $service =~ /[a-zA-Z0-9]/;
+	 }
+
+	 if(!defined($Hosts{$hval})) {
+		print "Invalid hostname ($hval) value specified. Choose from one of the following:\n\n";
+		$Hosts = join(", ", sort(keys(%Hosts)));
+		print "$Hosts\n\n";
+		print "Not all combinations of hostname and service are valid.\n";
 		exit;
-	}
+	 }
+
+	 if(!defined($Services{$sval})) {
+		print "Invalid service ($sval) value specified. Choose from one of the following:\n\n";
+		$Services = join(", ", sort(keys(%Services)));
+		print "$Services\n\n";
+		print "Not all combinations of hostname and service are valid.\n";
+		exit;
+	 }
 
 #
 #	Finalize time range.
@@ -85,11 +117,11 @@
 	if (!(-e "$ENV{'HOME'}/mg/etc/munin.conf")) {
 		system("mkdir -p $ENV{'HOME'}/mg/etc");
 		open(CF, ">$ENV{'HOME'}/mg/etc/munin.conf");
+		printf CF "htmldir $ENV{'HOME'}/mg/etc\nlogdir $ENV{'HOME'}/mg/etc\nrundir $ENV{'HOME'}/mg/etc\n";
 		@x = `cat /etc/munin/munin.conf`;
 		for ($i=0; $i<=$#x; $i++) {
+			next if $x[$i] =~ /htmldir|logdir|rundir/;
 			printf CF $x[$i];
-			printf CF "htmldir $ENV{'HOME'}/mg/etc\nlogdir $ENV{'HOME'}/mg/etc\nrundir $ENV{'HOME'}/mg/etc\n" if $x[$i] =~ /rundir/;
-
 		}
 		close(CF);
 	}
@@ -102,7 +134,7 @@
 		chop($x[$i]);
 		chop($x[$i]) if $i < $#x;
 
-                $x[$i] =~ s/ - by day//;
+				$x[$i] =~ s/ - by day//;
                 $x[$i] = "'/home/crlb/mg/current.png'" if $x[$i] =~ /\.png/;
                 $x[$i+1] = $start if $x[$i] =~ /--start/;
                 if ($x[$i] =~ /--end/) {
