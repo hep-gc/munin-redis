@@ -1,10 +1,7 @@
 #!/bin/bash
 	PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
 
-#		cloud_status -l | sort  | awk 'BEGIN{} /[a-zA-Z0-9]/ {print ">>>" $0 "<<<"}'
-#		exit
 	if [ "$1" = "config" ]; then
-#		cat /etc/munin/plugins/clouds | sort | awk \
 		cloud_status -l | sort | awk \
 			'BEGIN{ \
 				colours[1,1] = "000088"; \
@@ -26,19 +23,18 @@
 				colours[6,2] = "ffff00"; \
 				colours[6,3] = "ffff88"; \
 
-				i = 0; \
+				cloudcount = 0; \
 
+				statecount = 3; \
 				states[1] = "Error"; \
 				states[2] = "Running"; \
 				states[3] = "Starting" \
 				} \
 
-			/[a-zA-Z0-9]/ \
-
 			{ \
 				if ($1=="") next; \
-				i = i + 1; \
-				clouds[i] = $1 \
+				cloudcount++; \
+				clouds[cloudcount] = $1 \
 				} \
 
 			END{ \
@@ -49,8 +45,8 @@
 				print "graph_height 500\n"; \
 
 				AreaStack = "AREA"; \
-				for (cloud in clouds) \
-					for (state in states) { \
+				for (cloud=1; cloud<=cloudcount; cloud++) \
+					for (state=1; state<=statecount; state++) { \
 						colour = 1 + (cloud % 6); \
 						print clouds[cloud] "-" states[state] ".label " states[state] " on " clouds[cloud] "\n" \
 							clouds[cloud] "-" states[state] ".draw " AreaStack "\n" \
@@ -59,22 +55,22 @@
 						} \
 				}'
 	else
-#				while (("cat /etc/munin/plugins/clouds | sort" | getline line)>0){ \
 		cloud_status -m | awk \
 			'BEGIN{ \
 #				addresses["alto.cloud.nrc.ca"] = "NRC"; \
 #				addresses["elephant.heprc.uvic.ca"] = "Elephant"; \
 #				addresses["svc.uc.futuregrid.org"] = "FGHotel"; \
 
-				i = 0; \
+				cloudcount = 0; \
 				while (("cloud_status -l | sort" | getline line)>0) { \
 					split(line, words); \
 					if (words[1]!="") { \
-						i = i + 1; \
-						clouds[i] = words[1] \
+						cloudcount++; \
+						clouds[cloudcount] = words[1] \
 						} \
 					} \
 
+				statecount = 3; \
 				states[1] = "Error"; \
 				states[2] = "Running"; \
 				states[3] = "Starting" \
@@ -90,8 +86,8 @@
 				} \
 
 			END{ \
-				for (cloud in clouds) \
-					for (state in states) { \
+				for (cloud=1; cloud<=cloudcount; cloud++) \
+					for (state=1; state<=statecount; state++) { \
 						print clouds[cloud] "-" states[state] ".value " count[clouds[cloud],states[state]]+0 \
 						} \
 				}'
