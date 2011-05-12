@@ -43,10 +43,33 @@
 #	Print command help if mandtory parameters missing.
 #
 	if ($hval eq '' || $sval eq '') {
-		print "Generate Munin graphs.\n\nSynopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30] [-H height] [-W width] [-c]\n\n";
-		print "mg will save the requested graph in '$ENV{'HOME'}/mg/current.png'. If the '-c' option is specified, a copy\n";
-		print "of 'current.png' will be made and saved in '$ENV{'HOME'}/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>.png'\n";
-		print "Specfying a 'timeinsec' value of zero will graph the last 'rangeinhrs' of data and display the start\ntime.\n\n";
+		print "Generate and save a munin graph in '$ENV{'HOME'}/mg/current.png'.\n\n";
+		print "Synopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30]\n";
+		print "              [-H height] [-W width] [-T title] [-c] [-n]\n\n";
+		print "Parameters & Options:\n\n";
+		print "-h hostname   - Must be used to specify the fully qualified host name as declared by a\n";
+		print "                munin node. If omitted, these help messages are displayed. If invalid,\n";
+		print "                a list of valid host names is displayed.\n\n";
+		print "-s service    - Must be used to specify a valid service name. If omitted, these help\n";
+		print "                messages are displayed. If invalid, a list of valid service names is\n";
+		print "                displayed.\n\n";
+		print "-t timeinsec  - May be used to specify the start time specified as the number of seconds\n";
+		print "                offset from the Linux epoch. If omitted, the start time is calculated\n";
+		print "                by subtracting the range value from the current time.\n\n";
+		print "-r rangeinhrs - May be used to specify the number of hours to be plotted. If specified\n";
+		print "                and the time ('-t') parameter is omitted, the calculated time value will\n";
+		print "                displayed for use (cut/paste) in future command invocations. The default\n";
+		print "                value is 30 hours.\n\n";
+		print "-H height     - May be used to specify the height of the graph in pixels. The default\n";
+		print "                value is defined by the munin plugin for the service being plotted.\n\n";
+		print "-W width      - May be used to specify the width of the graph in pixels. The default\n";
+		print "                value is defined by the munin plugin for the service being plotted.\n\n";
+		print "-T title      - May be used to define a placement title for the graph. If omitted, the\n";
+		print "                title defined by the munin plugin for the service is used.\n\n";
+		print "-c            - May be used to specify that a copy of the current graph be saved in\n";
+		print "                '$ENV{'HOME'}/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>-<height>x<width>.png'\n\n";
+		print "-n            - May be used to request no comments. This option minimizes the amount of\n";
+		print "                text at the bottom of the graph.\n";
 		exit;
 	}
 
