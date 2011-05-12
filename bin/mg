@@ -19,7 +19,7 @@
 	$sval = '';			# no default service
 	$Hval = 600;		# default height
 	$Wval = 1200;		# default width
-	$Fval = 'png';		# default image format
+	$Tval = '';			# No replacement graph title
 	$cval = 0;			# default copy flag
 	$nval = 0;			# default caption flag
 
@@ -29,12 +29,12 @@
 	while (@ARGV) {
 		$key = shift();
 		$tval = abs(shift()) if $key eq '-t';
-		$rval = shift() if $key eq '-r';
+		$rval = abs(shift()) if $key eq '-r';
 		$hval = shift() if $key eq '-h';
 		$sval = shift() if $key eq '-s';
 		$Hval = shift() if $key eq '-H';
 		$Wval = shift() if $key eq '-W';
-		$Fval = shift() if $key eq '-F';
+		$Tval = shift() if $key eq '-T';
 		$cval = $cval ^ 1 if $key eq '-c';
 		$nval = $nval ^ 1 if $key eq '-n';
 	}
@@ -134,6 +134,7 @@
 		chop($x[$i]);
 		chop($x[$i]) if $i < $#x;
 
+		$x[$i] = "'$Tval'\\\n" if $Tval ne '' && $x[$i] =~ s/ - by day//;
 		$x[$i] =~ s/ - by day//;
 		$x[$i] = "'$ENV{'HOME'}/mg/current.png'" if $x[$i] =~ /\.png/;
 		$x[$i+1] = $start if $x[$i] =~ /--start/;
