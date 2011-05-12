@@ -64,7 +64,7 @@
 		print "                value is defined by the munin plugin for the service being plotted.\n\n";
 		print "-W width      - May be used to specify the width of the graph in pixels. The default\n";
 		print "                value is defined by the munin plugin for the service being plotted.\n\n";
-		print "-T title      - May be used to define a placement title for the graph. If omitted, the\n";
+		print "-T title      - May be used to define a replacement title for the graph. If omitted, the\n";
 		print "                title defined by the munin plugin for the service is used.\n\n";
 		print "-c            - May be used to specify that a copy of the current graph be saved in\n";
 		print "                '$ENV{'HOME'}/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>-<height>x<width>.png'\n\n";
