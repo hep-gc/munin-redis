@@ -27,11 +27,11 @@
 					print "error.colour 000000"; \
 
 					print "running.label Running"; \
-					print "running.draw AREA"; \
+					print "running.draw STACK"; \
 					print "running.colour 008888"; \
 
 					print "starting.label Starting"; \
-					print "starting.draw AREA"; \
+					print "starting.draw STACK"; \
 					print "starting.colour cccccc\n"; \
 
 					print "heartbeat.label Cloud Scheduler Heartbeat"; \
