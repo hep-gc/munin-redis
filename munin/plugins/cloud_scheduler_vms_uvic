@@ -51,6 +51,10 @@
 							clouds[cloud] "-" states[state] ".colour " colours[colour] "\n"; \
 						AreaStack = "STACK"; \
 						} \
+
+				print "heartbeat.label Cloud Scheduler Heartbeat"; \
+				print "heartbeat.draw LINE3"; \
+				print "heartbeat.colour ff0000\n"; \
 				}'
 	else
 		cloud_status -m | awk \
@@ -71,10 +75,14 @@
 				statecount = 3; \
 				states[1] = "Error"; \
 				states[2] = "Running"; \
-				states[3] = "Starting" \
+				states[3] = "Starting"; \
+
+				switch = "Yes" \
 				} \
 
-			{ \
+			/couldn\047t connect/ {switch="No"}; \
+
+			// { \
 				if ($0=="" || $1=="ID" || $1=="Total") next; \
 				state="Error"; \
 				if ($4=="Running" || $4=="ExpiredProxy" || $4=="Retiring") state="Running"; \
@@ -88,5 +96,7 @@
 					for (state=1; state<=statecount; state++) { \
 						print clouds[cloud] "-" states[state] ".value " count[clouds[cloud],states[state]]+0 \
 						} \
+
+				if (switch=="Yes") print "heartbeat.value 0.0"; \
 				}'
 	fi
