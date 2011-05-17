@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+	$Debug = 0;
 	$ENV{'PATH'} = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin';
 
 #
@@ -15,6 +16,8 @@
 #
 	$tval = 0;			# default time
 	$rval = 0;			# default range
+	$fval = 0;			# default font size
+	$Fval = 0;			# default legend font size
 	$hval = '';			# no default host
 	$sval = '';			# no default service
 	$Hval = 600;		# default height
@@ -30,6 +33,8 @@
 		$key = shift();
 		$tval = abs(shift()) if $key eq '-t';
 		$rval = abs(shift()) if $key eq '-r';
+		$fval = abs(shift()) if $key eq '-f';
+		$Fval = abs(shift()) if $key eq '-F';
 		$hval = shift() if $key eq '-h';
 		$sval = shift() if $key eq '-s';
 		$Hval = shift() if $key eq '-H';
@@ -44,8 +49,8 @@
 #
 	if ($hval eq '' || $sval eq '') {
 		print "Generate and save a munin graph in '$ENV{'HOME'}/mg/current.png'.\n\n";
-		print "Synopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30]\n";
-		print "              [-H height] [-W width] [-T title] [-c] [-n]\n\n";
+		print "Synopsis: mg -h hostname -s service [-t timeinsec] [-r rangeinhrs | 30] [T title]\n";
+		print "              [-H height] [-W width] [-f fontsize] [-F fontsize] [-c] [-n]\n\n";
 		print "Parameters & Options:\n\n";
 		print "-h hostname   - Must be used to specify the fully qualified host name as declared by a\n";
 		print "                munin node. If omitted, these help messages are displayed. If invalid,\n";
@@ -60,12 +65,16 @@
 		print "                and the time ('-t') parameter is omitted, the calculated time value will\n";
 		print "                displayed for use (cut/paste) in future command invocations. The default\n";
 		print "                value is 30 hours.\n\n";
+		print "-T title      - May be used to define a replacement title for the graph. If omitted, the\n";
+		print "                title defined by the munin plugin for the service is used.\n\n";
 		print "-H height     - May be used to specify the height of the graph in pixels. The default\n";
 		print "                value is defined by the munin plugin for the service being plotted.\n\n";
 		print "-W width      - May be used to specify the width of the graph in pixels. The default\n";
 		print "                value is defined by the munin plugin for the service being plotted.\n\n";
-		print "-T title      - May be used to define a replacement title for the graph. If omitted, the\n";
-		print "                title defined by the munin plugin for the service is used.\n\n";
+		print "-f fontsize   - May be used to specify a numeric font size for titles and labels. The\n";
+		print "                default is defined by munin.\n\n";
+		print "-F fontsize   - May be used to specify a numeric font size for legends and comments. The\n";
+		print "                default is defined by munin.\n\n";
 		print "-c            - May be used to specify that a copy of the current graph be saved in\n";
 		print "                '$ENV{'HOME'}/mg/<hostname>-<service>-<timeinsec>-<rangeinhrs>-<height>x<width>.png'\n\n";
 		print "-n            - May be used to request no comments. This option minimizes the amount of\n";
@@ -152,6 +161,7 @@
 #
 #	Run munin-graph. Retrieve and modify resulting rrdtool graph parameters.
 #
+	open(GP, ">$ENV{'HOME'}/mg/etc/mg-parms") if $Debug;
 	@x = `/usr/share/munin/munin-graph --config $ENV{'HOME'}/mg/etc/munin.conf --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
 	for ($i=0; $i<=$#x; $i++) {
 		chop($x[$i]);
@@ -177,7 +187,13 @@
 			$x[$i] = '' if $x[$i] =~ /COMMENT/;
 			$x[$i] = '' if $x[$i] =~ /GPRINT/;
 		}
+
+		$x[$i] =~ s/0/$fval/ if $fval>0 && $x[$i] =~ /DEFAULT:0:DejaVuSans/;
+		$x[$i] =~ s/7/$Fval/ if $Fval>0 && $x[$i] =~ /LEGEND:7:DejaVuSansMono/;
+
+		printf GP "$x[$i]\n" if $Debug && $x[$i] =~/[a-zA-Z0-9]/;
 	}
+	close(GP) if $Debug;
 
 #
 #	Run the modified rrdtool graph.
