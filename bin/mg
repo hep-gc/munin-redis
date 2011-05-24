@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-	$Debug = 0;
 	$ENV{'PATH'} = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin';
 
 #
@@ -161,7 +160,8 @@
 #
 #	Run munin-graph. Retrieve and modify resulting rrdtool graph parameters.
 #
-	open(GP, ">$ENV{'HOME'}/mg/etc/mg-parms") if $Debug;
+	open(GP, ">>$ENV{'HOME'}/mg/etc/mg-parms") if $ENV{'DEBUG'};
+	$ended = 0;
 	@x = `/usr/share/munin/munin-graph --config $ENV{'HOME'}/mg/etc/munin.conf --nolazy --host $hval  --service $sval --noweek --nomonth --noyear --debug  2>&1 | awk '/\\\\/'`;
 	for ($i=0; $i<=$#x; $i++) {
 		chop($x[$i]);
@@ -172,6 +172,7 @@
 		$x[$i] = "'$ENV{'HOME'}/mg/current.png'" if $x[$i] =~ /\.png/;
 		$x[$i+1] = $start if $x[$i] =~ /--start/;
 		if ($x[$i] =~ /--end/) {
+			$ended = 1;
 			if ($range == 0 ) {
 				$x[$i] = '';
 				$x[$i+1] = '';
@@ -191,9 +192,14 @@
 		$x[$i] =~ s/0/$fval/ if $fval>0 && $x[$i] =~ /DEFAULT:0:DejaVuSans/;
 		$x[$i] =~ s/7/$Fval/ if $Fval>0 && $x[$i] =~ /LEGEND:7:DejaVuSansMono/;
 
-		printf GP "$x[$i]\n" if $Debug && $x[$i] =~/[a-zA-Z0-9]/;
+		printf GP "$x[$i]\n" if $ENV{'DEBUG'} && $x[$i] =~/[a-zA-Z0-9]/;
 	}
-	close(GP) if $Debug;
+
+	if (!$ended && $range>0) {
+		$x[$#x+1] = "--end $end";
+		printf GP "$x[$#x]\n" if $ENV{'DEBUG'};
+	}
+	close(GP) if $ENV{'DEBUG'};
 
 #
 #	Run the modified rrdtool graph.
