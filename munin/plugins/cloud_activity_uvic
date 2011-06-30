@@ -1,4 +1,12 @@
 #!/bin/bash
+#	Process the columns of cloud_status -m
+#
+#	$1          $2                      $3                  $4          $5          $6      
+#	ID          HOSTNAME                VMTYPE              USER        STATUS      CLUSTER
+
+	declare -i StatusCol=5
+	declare -i ClusterCol=6
+
 	PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
 
 	if [ "$1" = "config" ]; then
@@ -64,9 +72,9 @@
 			// { \
 				if ($0=="" || $1=="ID" || $1=="Total") next; \
 				state="error"; \
-				if ($4=="Running" || $4=="ExpiredProxy" || $4=="Retiring") state="running"; \
-				if ($4=="Starting") state="starting"; \
-				count[$5,state]++ \
+				if ($'$StatusCol'=="Running" || $'$StatusCol'=="ExpiredProxy" || $'$StatusCol'=="Retiring") state="running"; \
+				if ($'$StatusCol'=="Starting") state="starting"; \
+				count[$'$ClusterCol',state]++ \
 				} \
 
 			END{ \
