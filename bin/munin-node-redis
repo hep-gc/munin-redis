@@ -100,8 +100,8 @@
 #
 #	If the hostname variable is not set in Redis, set it ...
 #
-	$x = `redis-cli -h $RedisHost -p $RedisPort get hostname`;
-	if ($x =~ /(nil)/) {
+	@x = `redis-cli -h $RedisHost -p $RedisPort get hostname`;
+	if ($x[0] eq "\n" || $x[0] eq "(nil)\n") {
 		print "setting hostname\n" if $Testing;
 		system("redis-cli -h $RedisHost -p $RedisPort set hostname '$Hostname' >/dev/null");
 

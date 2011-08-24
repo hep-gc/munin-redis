@@ -182,10 +182,14 @@ case $1 in
 	echo 'down.type COUNTER'
 	echo 'down.draw AREA'
 	echo 'down.cdef down,8,*'
+	echo 'down.max 10000000000'
+	echo 'down.min 0'
 	echo 'up.label Transmitted'
 	echo 'up.type COUNTER'
 	echo 'up.draw LINE'
 	echo 'up.cdef up,8,*'
+	echo 'up.max 10000000000'
+	echo 'up.min 0'
 	print_warning down
 	print_warning up
 	print_critical down

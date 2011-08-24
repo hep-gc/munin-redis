@@ -28,19 +28,25 @@
 					print "graph_category Cloud"; \
 					print "graph_vlabel Virtual Machines"; \
 					print "graph_width 800"; \
-					print "graph_height 500"; \
+					print "graph_height 500\n"; \
 
 					print "error.label Error"; \
 					print "error.draw AREA"; \
 					print "error.colour 000000"; \
+					print "error.max 10000"; \
+					print "error.min 0\n"; \
 
 					print "running.label Running"; \
 					print "running.draw STACK"; \
 					print "running.colour 008888"; \
+					print "running.max 10000"; \
+					print "running.min 0\n"; \
 
 					print "starting.label Starting"; \
 					print "starting.draw STACK"; \
-					print "starting.colour cccccc\n"; \
+					print "starting.colour cccccc"; \
+					print "starting.max 10000"; \
+					print "starting.min 0\n"; \
 
 					print "heartbeat.label Cloud Scheduler Heartbeat"; \
 					print "heartbeat.draw LINE3"; \
